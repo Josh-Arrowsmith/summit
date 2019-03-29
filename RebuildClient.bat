@@ -1,0 +1,2 @@
+javac SummitClient.java
+pause
