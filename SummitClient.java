@@ -54,6 +54,33 @@ public class SummitClient extends Thread {
     public SummitClient() {
     }
 
+    /** tries to connect to the server.  If there is a problem (such as the server not running yet) it
+     *  pauses, then tries again.  If the server quits and restarts, this method is called by the thread
+     *  in order to re-establish communication.
+     * @param host
+     * @param port
+     * @return
+     */
+    public Socket connect(String host, int port) {
+        Socket socket = null;
+        try {
+            socket = new Socket(host, port);
+        } catch (UnknownHostException ex) {
+            System.err.println("Host Unknown. Quitting");
+            System.exit(0);
+        } catch (IOException ex) {
+            System.err.println("Could not Connect to " + host + ":" + port + ".  Trying again...");
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException ex1) {
+                Logger.getLogger(SummitClient.class.getName()).log(Level.SEVERE, null, ex1);
+            }
+            return connect(host, port);
+        }
+        System.out.println("Connected to " + host + ":" + port);
+        return socket;
+    }
+
     @Override
     public void run() {
         try {
@@ -131,61 +158,38 @@ public class SummitClient extends Thread {
         //Check if the message is a HazardZoneDetection
         if (o instanceof afrl.cmasi.searchai.HazardZoneDetection) {
             HazardZoneDetection hazardDetected = ((HazardZoneDetection) o);
-            //Get location where zone first detected
-            Location3D detectedLocation = hazardDetected.getDetectedLocation();
-            //Get entity that detected the zone
-            int detectingEntity = (int) hazardDetected.getDetectingEnitiyID();
-
-            //Check if hint
-            if (detectingEntity == 0) {
-                //Do nothing for now, hints will be added later
-                return;
-            }
-
-            //Check if the UAV has already been sent the loiter command and proceed if it hasn't
-            if (uavsLoiter[detectingEntity - 1] == false) {
-                //Send the loiter command
-                sendLoiterCommand(out, detectingEntity, detectedLocation);
-
-                //Note: Polygon points must be in clockwise or counter-clockwise order to get a shape without intersections
-                estimatedHazardZone.getBoundaryPoints().add(detectedLocation);
-
-                //Send out the estimation report to draw the polygon
-                sendEstimateReport(out, estimatedHazardZone);
-
-                uavsLoiter[detectingEntity - 1] = true;
-                System.out.println("UAV" + detectingEntity + " detected hazard at " + detectedLocation.getLatitude() +
-                        "," + detectedLocation.getLongitude() + ". Sending loiter command.");
-            }
+            HandleHazardZoneDetection(hazardDetected, out);   
         }
     }
 
+    public void HandleHazardZoneDetection(HazardZoneDetection hazardDetected, OutputStream out) throws Exception {
+        //Get location where zone first detected
+        Location3D detectedLocation = hazardDetected.getDetectedLocation();
+        //Get entity that detected the zone
+        int detectingEntity = (int) hazardDetected.getDetectingEnitiyID();
 
-    /** tries to connect to the server.  If there is a problem (such as the server not running yet) it
-     *  pauses, then tries again.  If the server quits and restarts, this method is called by the thread
-     *  in order to re-establish communication.
-     * @param host
-     * @param port
-     * @return
-     */
-    public Socket connect(String host, int port) {
-        Socket socket = null;
-        try {
-            socket = new Socket(host, port);
-        } catch (UnknownHostException ex) {
-            System.err.println("Host Unknown. Quitting");
-            System.exit(0);
-        } catch (IOException ex) {
-            System.err.println("Could not Connect to " + host + ":" + port + ".  Trying again...");
-            try {
-                Thread.sleep(500);
-            } catch (InterruptedException ex1) {
-                Logger.getLogger(SummitClient.class.getName()).log(Level.SEVERE, null, ex1);
-            }
-            return connect(host, port);
+        
+        //Check if hint
+        if (detectingEntity == 0) {
+            //Do nothing for now, hints will be added later
+            return;
         }
-        System.out.println("Connected to " + host + ":" + port);
-        return socket;
+
+        //Check if the UAV has already been sent the loiter command and proceed if it hasn't
+        if (uavsLoiter[detectingEntity - 1] == false) {
+            //Send the loiter command
+            sendLoiterCommand(out, detectingEntity, detectedLocation);
+
+            //Note: Polygon points must be in clockwise or counter-clockwise order to get a shape without intersections
+            estimatedHazardZone.getBoundaryPoints().add(detectedLocation);
+
+            //Send out the estimation report to draw the polygon
+            sendEstimateReport(out, estimatedHazardZone);
+
+            uavsLoiter[detectingEntity - 1] = true;
+            System.out.println("UAV" + detectingEntity + " detected hazard at " + detectedLocation.getLatitude() +
+                    "," + detectedLocation.getLongitude() + ". Sending loiter command.");
+        }
     }
 
     public static void main(String[] args) {
