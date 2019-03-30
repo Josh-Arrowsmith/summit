@@ -11,6 +11,9 @@ if lower
 	place a marker
 	turn to the left until the hazard side takes up 50% of the drones vision again
 	once this is done continue to follow down the line
+
+irrelevant past this point:
+
 when/if the drone finds the first marker again
 	fly back to hq
 	if encounter a fast boi

@@ -19,10 +19,12 @@ from afrl.cmasi.AirVehicleState import AirVehicleState
 from afrl.cmasi.AirVehicleConfiguration import AirVehicleConfiguration
 from afrl.cmasi.KeepInZone import KeepInZone
 
+
 # Librarys that haven't come with the default hackathon package
 from scipy.special import softmax
 import math
 import numpy as np
+import time
 
 
 class Node():  # Class defined for each point in the matrix
@@ -41,6 +43,7 @@ class Summit(IDataReceived):
     GRID_SIZE = 10
     ALTITUDE = 150
 
+
     def __init__(self, tcpClient):
         self.waypoints = {}
         self.__client = tcpClient
@@ -49,6 +52,8 @@ class Summit(IDataReceived):
         self.grid = [[0 for a in range(self.GRID_SIZE)] for b in range(self.GRID_SIZE)] #np.ones([self.GRID_SIZE, self.GRID_SIZE])
         self.p_grid = np.ones([self.GRID_SIZE, self.GRID_SIZE])
         self.zoneCenter = Location3D()
+        self.starttime = time.time()
+
 
     def checkNode(self):
         coords = [[a, b] for a in range(self.GRID_SIZE) for b in range(self.GRID_SIZE)]
@@ -57,6 +62,7 @@ class Summit(IDataReceived):
         return coords[r]
 
     def dataReceived(self, lmcpObject):
+
         # Scenario initialised
         if isinstance(lmcpObject, KeepInZone):
             zone = lmcpObject
@@ -96,7 +102,6 @@ class Summit(IDataReceived):
             c = vehicleState.get_CurrentWaypoint()
             if self.waypoints != {}:
                 w_lat, w_lon = self.waypoints[vehicle_id]
-                #print(abs(w_lat - lat), abs(lon - w_lon))
                 if (abs(w_lat - lat) <  .009) and (abs(lon - w_lon) < .009):
                     # redeploy
                     locNode = self.checkNode()
@@ -104,7 +109,7 @@ class Summit(IDataReceived):
                     self.performAction(vehicle_id, loc.Location, "waypoint")
                     print("redeploy ", vehicle_id)
 
-                # adjust the pgrid values
+                # adjust the pgrid values when there is no fire
                 x, y = self.grid_coords_from_loc(lat, lon)
                 beta = .5
                 self.p_grid[x][y] = beta
@@ -133,17 +138,14 @@ class Summit(IDataReceived):
                 print('UAV' + str(detectingEntity) + ' detected hazard at ' + str(
                     f_lat) + ',' + str(
                     f_lon) + '. Sending loiter command.')
-                self.detected = True
 
-
-
+                # adjust the pgrid values when there is fire
                 x, y = self.grid_coords_from_loc(f_lat, f_lon)
-
-                # adjust the pgrid values
                 alpha = 2
                 self.p_grid[x][y] = alpha
                 print(x,y)
-                print('fire at ',f_lat,f_lon)
+                print('fire at ', f_lat, f_lon)
+                self.performAction(detectingEntity, detectedLocation, "loiter")
 
     def grid_coords_from_loc(self,i_lat,i_lon):
         last_diff_lat = 360
@@ -172,7 +174,7 @@ class Summit(IDataReceived):
         # Setting up the loiter action
         loiterAction = LoiterAction()
         loiterAction.set_LoiterType(LoiterType.Circular)
-        loiterAction.set_Radius(250)
+        loiterAction.set_Radius(50)
         loiterAction.set_Axis(0)
         loiterAction.set_Length(0)
         loiterAction.set_Direction(LoiterDirection.Clockwise)
@@ -206,24 +208,26 @@ class Summit(IDataReceived):
             waypoint = Waypoint()
             waypoint.set_Latitude(location.get_Latitude())
             waypoint.set_Longitude(location.get_Longitude())
-            waypoint.set_Altitude(self.ALTITUDE)
+            # Avoid collision by flying at different altitudes
+            waypoint.set_Altitude(self.ALTITUDE + vehicleId*10)
+            waypoint.set_AltitudeType(0)
+            waypoint.set_Speed(10)
+            waypoint.set_SpeedType(0)
             vehicleActionCommand.get_WaypointList().append(waypoint)
             self.waypoints[vehicleId] = (location.get_Latitude(), location.get_Longitude())
 
         if (action == "loiter"):
             loiter = LoiterAction()
-
             loiter.set_LoiterType(LoiterType.Circular)
-            loiter.set_Radius(1000)
+            loiter.set_Radius(10)
             loiter.set_Axis(0)
             loiter.set_Length(0)
             loiter.set_Direction(LoiterDirection.Clockwise)
             loiter.set_Duration(100000)
             loiter.set_Airspeed(15)
-
             loiter.set_Location(location)
             vehicleActionCommand.get_VehicleActionList().append(loiter)
-            print(vehicleActionCommand.toString())
+            #rint(vehicleActionCommand.toString())
 
         # Sending the Vehicle Action Command message to AMASE to be interpreted
         self.__client.sendLMCPObject(vehicleActionCommand)
