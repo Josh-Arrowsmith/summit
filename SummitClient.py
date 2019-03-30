@@ -23,7 +23,7 @@ from scipy.special import softmax
 import math
 import numpy as np
 
-GRID_SIZE = 10
+GRID_SIZE = 100
 
 class Node():  # Class defined for each point in the matrix
     def __init__(self, id_in, location_in):
@@ -43,7 +43,7 @@ class Summit(IDataReceived):
         self.__client = tcpClient
         self.__uavsLoiter = {}
         self.__estimatedHazardZone = Polygon()
-        self.node = [[[] for i in range(10)] for j in range(10)] # Creates empty array 10 x 10
+        self.node = [[[] for i in range(GRID_SIZE)] for j in range(GRID_SIZE)] # Creates empty array 10 x 10
         self.grid = np.full((GRID_SIZE, GRID_SIZE), 1.0)
         self.p_grid = np.empty((GRID_SIZE, GRID_SIZE))
         self.zoneCenter = Location3D()
@@ -88,12 +88,14 @@ class Summit(IDataReceived):
         if isinstance(lmcpObject, KeepInZone):
             zone = lmcpObject
             self.zoneCenter = zone.Boundary.CenterPoint  # Stores the Zones bounding box geopoint into Zone Center
+            w = zone.Boundary.Width
+            h = zone.Boundary.Height
             print("Zone Lat: " + str(self.zoneCenter.get_Latitude()))
             print("Zone Long: " + str(self.zoneCenter.get_Longitude()))
 
-            for a in range(10):     # Fill array with Node Objects (Is instanciated here because we can get the zone data here)
-                for b in range(10):
-                    self.node[a][b] = Node(str(a) + str(b), self.meterCoordsFromCenter((20000/10)*a - 10000,(20000/10)*b - 10000, 700))
+            for a in range(GRID_SIZE):     # Fill array with Node Objects (Is instanciated here because we can get the zone data here)
+                for b in range(GRID_SIZE):
+                    self.node[a][b] = Node(str(a) + str(b), self.meterCoordsFromCenter((w/GRID_SIZE)*a - w/2,(h/GRID_SIZE)*b - h/2, 700))
             self.tick()
 
         if isinstance(lmcpObject, AirVehicleState):
