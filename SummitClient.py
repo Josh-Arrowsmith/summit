@@ -1,3 +1,4 @@
+from afrl.cmasi.searchai import HazardZone
 from amase.TCPClient import AmaseTCPClient
 from amase.TCPClient import IDataReceived
 from afrl.cmasi.searchai.HazardZoneEstimateReport import HazardZoneEstimateReport
@@ -18,9 +19,11 @@ from afrl.cmasi.AirVehicleConfiguration import AirVehicleConfiguration
 from afrl.cmasi.KeepInZone import KeepInZone
 import numpy as np
 
+
 class PrintLMCPObject(IDataReceived):
     def dataReceived(self, lmcpObject):
         print(lmcpObject.toXMLStr(""))
+
 
 class Summit(IDataReceived):
 
@@ -28,7 +31,7 @@ class Summit(IDataReceived):
         self.__client = tcpClient
         self.__uavsLoiter = {}
         self.__estimatedHazardZone = Polygon()
-        self.grid = np.full((10,10), 1)
+        self.grid = np.full((10, 10), 1)
         self.zoneCenter = Location3D
 
     def tick(self):
@@ -42,62 +45,73 @@ class Summit(IDataReceived):
         self.grid[x][y] *= alpha
 
         # pick a random waypoint based on probability grid
-        coords = [[a, b] for a in range(GRID_SIZE) for b in range(GRID_SIZE)]
-        pvalues = softmax(self.grid.flatten())
-        r = np.random.choice(range(GRID_SIZE * GRID_SIZE), 1, p = pvalues)[0]
-        print(coords[r])
 
-       # Get position
-         # Compute distance to refuel
-        #   distance =
-        # if distance to refuel > fuel * consumption * safety_coefficient:
-            # set heading to / waypoint to refuel position
-        # else:
-      #      r = rand() # between 0 and 1
-       #     epsilon = 0.8
-        #    if r < epsilon: # Exploration
-         #       random_angle = rand() * 360
-                # set random heading
-          #  else:
-                # use knowledge
-           #     if fire_detected:
-                    #
+# Credrics random point selector with probability ---
+#        coords = [[a, b] for a in range(GRID_SIZE) for b in range(GRID_SIZE)]
+#        pvalues = softmax(self.grid.flatten())
+#        r = np.random.choice(range(GRID_SIZE * GRID_SIZE), 1, p=pvalues)[0]
+#        print(coords[r])
+#----
+
+    # Get position
+    # Compute distance to refuel
+    #   distance =
+    # if distance to refuel > fuel * consumption * safety_coefficient:
+    # set heading to / waypoint to refuel position
+    # else:
+    #      r = rand() # between 0 and 1
+    #     epsilon = 0.8
+    #    if r < epsilon: # Exploration
+    #       random_angle = rand() * 360
+    # set random heading
+    #  else:
+    # use knowledge
+    #     if fire_detected:
+    #
     def dataReceived(self, lmcpObject):
-        self.tick()
+        # self.tick()
         if isinstance(lmcpObject, KeepInZone):
             zone = lmcpObject
-            self.zoneCenter = zone.Boundary.CenterPoint                 # Stores the Zones bounding box geopoint into Zone Center
+            self.zoneCenter = zone.Boundary.CenterPoint  # Stores the Zones bounding box geopoint into Zone Center
             print("Zone Lat: " + str(self.zoneCenter.get_Latitude()))
             print("Zone Long: " + str(self.zoneCenter.get_Longitude()))
-            self.zonecentercoords = (self.zoneCenter.get_Latitude(), self.zoneCenter.get_Longitude())
+
+#            self.zonecentercoords = (self.zoneCenter.get_Latitude(), self.zoneCenter.get_Longitude())
 
         if isinstance(lmcpObject, AirVehicleState):
             vehicleState = lmcpObject
-            vehicleState.Location
 
         if isinstance(lmcpObject, AirVehicleConfiguration):
             vehicleInfo = lmcpObject
             print(str(vehicleInfo.EntityType))
-        
+            if (str(vehicleInfo.EntityType) == "b'FixedWing'"):
+                loc = Location3D()
+                loc.set_Latitude(53.4363)
+                loc.set_Longitude(-1.6816)
+                loc.set_Altitude(700)
+                self.performAction(vehicleInfo.get_ID(), loc, "loiter")
+
         if isinstance(lmcpObject, HazardZoneDetection):
             hazardDetected = lmcpObject
-            #Get location where zone first detected
+            # Get location where zone first detected
             detectedLocation = hazardDetected.get_DetectedLocation()
-            #Get entity that detected the zone
+            # Get entity that detected the zone
             detectingEntity = hazardDetected.get_DetectingEnitiyID()
-            #Check if the UAV has already been sent the loiter command and proceed if it hasn't
+            # Check if the UAV has already been sent the loiter command and proceed if it hasn't
             if not detectingEntity in self.__uavsLoiter:
-                #Send the loiter command
+                # Send the loiter command
                 self.sendLoiterCommand(detectingEntity, detectedLocation)
 
-                #Note: Polygon points must be in clockwise or counter-clockwise order to get a shape without intersections
+                # Note: Polygon points must be in clockwise or counter-clockwise order to get a shape without intersections
                 self.__estimatedHazardZone.get_BoundaryPoints().append(detectedLocation)
 
-                #Send out the estimation report to draw the polygon
-                self.sendEstimateReport();
+                # Send out the estimation report to draw the polygon
+                self.sendEstimateReport()
 
                 self.__uavsLoiter[detectingEntity] = True
-                print('UAV' + str(detectingEntity) + ' detected hazard at ' + str(detectedLocation.get_Latitude()) + ',' + str(detectedLocation.get_Longitude()) + '. Sending loiter command.');
+                print('UAV' + str(detectingEntity) + ' detected hazard at ' + str(
+                    detectedLocation.get_Latitude()) + ',' + str(
+                    detectedLocation.get_Longitude()) + '. Sending loiter command.');
                 self.detected = True
 
     def sendLoiterCommand(self, vehicleId, location):
@@ -107,7 +121,7 @@ class Summit(IDataReceived):
         vehicleActionCommand.set_Status(CommandStatusType.Pending)
         vehicleActionCommand.set_CommandID(1)
 
-        #Setting up the loiter action
+        # Setting up the loiter action
         loiterAction = LoiterAction()
         loiterAction.set_LoiterType(LoiterType.Circular)
         loiterAction.set_Radius(250)
@@ -117,13 +131,13 @@ class Summit(IDataReceived):
         loiterAction.set_Duration(100000)
         loiterAction.set_Airspeed(15)
 
-        #Creating a 3D location object for the stare point
+        # Creating a 3D location object for the stare point
         loiterAction.set_Location(location)
 
-        #Adding the loiter action to the vehicle action list
+        # Adding the loiter action to the vehicle action list
         vehicleActionCommand.get_VehicleActionList().append(loiterAction)
 
-        #Sending the Vehicle Action Command message to AMASE to be interpreted
+        # Sending the Vehicle Action Command message to AMASE to be interpreted
         self.__client.sendLMCPObject(vehicleActionCommand)
 
     def sendEstimateReport(self):
@@ -136,8 +150,33 @@ class Summit(IDataReceived):
         hazardZoneEstimateReport.set_EstimatedZoneDirection(0)
         hazardZoneEstimateReport.set_EstimatedZoneSpeed(0)
 
-        #Sending the Vehicle Action Command message to AMASE to be interpreted
+        # Sending the Vehicle Action Command message to AMASE to be interpreted
         self.__client.sendLMCPObject(hazardZoneEstimateReport)
+
+    def performAction(self, vehicleId, location, action): # Action that is called that tells the drone what to do
+        # Setting up the mission to send to the UAV
+        vehicleActionCommand = VehicleActionCommand()
+        vehicleActionCommand.set_VehicleID(vehicleId)
+        vehicleActionCommand.set_Status(CommandStatusType.Pending)
+        vehicleActionCommand.set_CommandID(1)
+
+        if (action == "loiter"):
+            loiter = LoiterAction()
+
+            loiter.set_LoiterType(LoiterType.Circular)
+            loiter.set_Radius(1000)
+            loiter.set_Axis(0)
+            loiter.set_Length(0)
+            loiter.set_Direction(LoiterDirection.Clockwise)
+            loiter.set_Duration(100000)
+            loiter.set_Airspeed(15)
+
+            loiter.set_Location(location)
+            vehicleActionCommand.get_VehicleActionList().append(loiter)
+
+        # Sending the Vehicle Action Command message to AMASE to be interpreted
+        self.__client.sendLMCPObject(vehicleActionCommand)
+
 
 #################
 ## Main
@@ -147,16 +186,16 @@ if __name__ == '__main__':
     myHost = 'localhost'
     myPort = 5555
     amaseClient = AmaseTCPClient(myHost, myPort)
-    #amaseClient.addReceiveCallback(PrintLMCPObject())
+    # amaseClient.addReceiveCallback(PrintLMCPObject())
     amaseClient.addReceiveCallback(Summit(amaseClient))
 
     try:
         # make a threaded client, listen until a keyboard interrupt (ctrl-c)
-        #start client thread
+        # start client thread
         amaseClient.start()
         print("running")
         while True:
-            #wait for keyboard interrupt
+            # wait for keyboard interrupt
             pass
     except KeyboardInterrupt as ki:
         print("Stopping amase tcp client")
@@ -190,4 +229,4 @@ if __name__ == '__main__':
 
             vehicleState.Location
 """
-    
+
