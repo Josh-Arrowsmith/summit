@@ -57,6 +57,7 @@ class Summit(IDataReceived):
         return coords[r]
 
     def dataReceived(self, lmcpObject):
+        # Scenario initialised
         if isinstance(lmcpObject, KeepInZone):
             zone = lmcpObject
             self.zoneCenter = zone.Boundary.CenterPoint
@@ -70,6 +71,22 @@ class Summit(IDataReceived):
                     pos = self.meterCoordsFromCenter((w/self.GRID_SIZE)*a - w/2,(h/self.GRID_SIZE)*b - h/2, self.ALTITUDE)
                     self.grid[a][b] = Node(str(a) + str(b), pos)
 
+        # Aircraft initialised
+        if isinstance(lmcpObject, AirVehicleConfiguration):
+            vehicleInfo = lmcpObject
+            print(str(vehicleInfo.EntityType))
+            locNode = self.checkNode()
+            loc = self.grid[locNode[0]][locNode[1]]
+
+            self.performAction(vehicleInfo.get_ID(), loc.Location, "waypoint")
+            #
+            # if (str(vehicleInfo.EntityType) == "b'FixedWing'"):
+            #     self.performAction(vehicleInfo.get_ID(), loc.Location, "waypoint")
+            #
+            # elif (str(vehicleInfo.EntityType) == "b'Multi'"):
+            #     self.performAction(vehicleInfo.get_ID(), loc.Location, "waypoint")
+
+        # AirVehicleState - ~2Hz
         if isinstance(lmcpObject, AirVehicleState):
             vehicleState = lmcpObject
             lat = vehicleState.get_Location().get_Latitude()
@@ -85,21 +102,14 @@ class Summit(IDataReceived):
                     locNode = self.checkNode()
                     loc = self.grid[locNode[0]][locNode[1]]
                     self.performAction(vehicle_id, loc.Location, "waypoint")
-                    print("redeploy")
+                    print("redeploy ", vehicle_id)
 
-        if isinstance(lmcpObject, AirVehicleConfiguration):
-            vehicleInfo = lmcpObject
-            print(str(vehicleInfo.EntityType))
+                # adjust the pgrid values
+                x, y = self.grid_coords_from_loc(lat, lon)
+                beta = .5
+                self.p_grid[x][y] = beta
 
-            locNode = self.checkNode()
-            loc = self.grid[locNode[0]][locNode[1]]
-
-            if (str(vehicleInfo.EntityType) == "b'FixedWing'"):
-                self.performAction(vehicleInfo.get_ID(), loc.Location, "waypoint")
-
-            elif (str(vehicleInfo.EntityType) == "b'Multi'"):
-                self.performAction(vehicleInfo.get_ID(), loc.Location, "waypoint")
-
+        # Hazard detected
         if isinstance(lmcpObject, HazardZoneDetection):
             hazardDetected = lmcpObject
             detectedLocation = hazardDetected.get_DetectedLocation()
@@ -115,35 +125,42 @@ class Summit(IDataReceived):
                 # Send out the estimation report to draw the polygon
                 self.sendEstimateReport()
 
-                self.__uavsLoiter[detectingEntity] = True
-                print('UAV' + str(detectingEntity) + ' detected hazard at ' + str(
-                    detectedLocation.get_Latitude()) + ',' + str(
-                    detectedLocation.get_Longitude()) + '. Sending loiter command.');
-                self.detected = True
-
-                # find x y based on
+                # find x y of fire, calculated from lat and lon
                 f_lat = detectedLocation.get_Latitude()
                 f_lon = detectedLocation.get_Longitude()
-                last_diff_lat = 360
-                last_diff_lon = 360
-                x = y = 0
-                for a in range(self.GRID_SIZE):
-                    for b in range(self.GRID_SIZE):
-                        lat = self.grid[a][b].Location.get_Latitude()
-                        lon = self.grid[a][b].Location.get_Longitude()
-                        diff_lat = abs(f_lat - lat)
-                        diff_lon = abs(f_lon - lon)
-                        if diff_lat <= last_diff_lat and diff_lon <= last_diff_lon:
-                            x = a
-                            y = b
-                            last_diff_lat = diff_lat
-                            last_diff_lon = diff_lon
+
+                self.__uavsLoiter[detectingEntity] = True
+                print('UAV' + str(detectingEntity) + ' detected hazard at ' + str(
+                    f_lat) + ',' + str(
+                    f_lon) + '. Sending loiter command.')
+                self.detected = True
+
+
+
+                x, y = self.grid_coords_from_loc(f_lat, f_lon)
+
                 # adjust the pgrid values
                 alpha = 2
-                self.p_grid[x][y] *= alpha
+                self.p_grid[x][y] = alpha
                 print(x,y)
-                print('fire at ',lat,lon)
+                print('fire at ',f_lat,f_lon)
 
+    def grid_coords_from_loc(self,i_lat,i_lon):
+        last_diff_lat = 360
+        last_diff_lon = 360
+        x = y = 0
+        for a in range(self.GRID_SIZE):
+            for b in range(self.GRID_SIZE):
+                lat = self.grid[a][b].Location.get_Latitude()
+                lon = self.grid[a][b].Location.get_Longitude()
+                diff_lat = abs(i_lat - lat)
+                diff_lon = abs(i_lon - lon)
+                if diff_lat <= last_diff_lat and diff_lon <= last_diff_lon:
+                    x = a
+                    y = b
+                    last_diff_lat = diff_lat
+                    last_diff_lon = diff_lon
+        return (x,y)
 
     def sendLoiterCommand(self, vehicleId, location):
         # Setting up the mission to send to the UAV
