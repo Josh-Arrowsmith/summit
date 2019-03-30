@@ -6,6 +6,7 @@ from afrl.cmasi.Circle import Circle
 from afrl.cmasi.Polygon import Polygon
 from afrl.cmasi.Waypoint import Waypoint
 from afrl.cmasi.VehicleActionCommand import VehicleActionCommand
+from afrl.cmasi.MissionCommand import MissionCommand
 from afrl.cmasi.LoiterAction import LoiterAction
 from afrl.cmasi.LoiterType import LoiterType
 from afrl.cmasi.LoiterDirection import LoiterDirection
@@ -38,14 +39,22 @@ class PrintLMCPObject(IDataReceived):
 class Summit(IDataReceived):
 
     GRID_SIZE = 10
+    ALTITUDE = 150
 
     def __init__(self, tcpClient):
+        self.waypoints = {}
         self.__client = tcpClient
         self.__uavsLoiter = {}
         self.__estimatedHazardZone = Polygon()
         self.grid = [[0 for a in range(self.GRID_SIZE)] for b in range(self.GRID_SIZE)] #np.ones([self.GRID_SIZE, self.GRID_SIZE])
         self.p_grid = np.ones([self.GRID_SIZE, self.GRID_SIZE])
         self.zoneCenter = Location3D()
+
+    def checkNode(self):
+        coords = [[a, b] for a in range(self.GRID_SIZE) for b in range(self.GRID_SIZE)]
+        pvalues = softmax(self.p_grid.flatten())
+        r = np.random.choice(range(self.GRID_SIZE * self.GRID_SIZE), 1, p=pvalues)[0]
+        return coords[r]
 
     def dataReceived(self, lmcpObject):
         if isinstance(lmcpObject, KeepInZone):
@@ -58,24 +67,38 @@ class Summit(IDataReceived):
 
             for a in range(self.GRID_SIZE):
                 for b in range(self.GRID_SIZE):
-                    pos = self.meterCoordsFromCenter((w/self.GRID_SIZE)*a - w/2,(h/self.GRID_SIZE)*b - h/2, 150)
+                    pos = self.meterCoordsFromCenter((w/self.GRID_SIZE)*a - w/2,(h/self.GRID_SIZE)*b - h/2, self.ALTITUDE)
                     self.grid[a][b] = Node(str(a) + str(b), pos)
 
         if isinstance(lmcpObject, AirVehicleState):
             vehicleState = lmcpObject
+            lat = vehicleState.get_Location().get_Latitude()
+            lon = vehicleState.get_Location().get_Longitude()
+            vehicle_id = vehicleState.get_ID()
+
+            c = vehicleState.get_CurrentWaypoint()
+            if self.waypoints != {}:
+                w_lat, w_lon = self.waypoints[vehicle_id]
+                #print(abs(w_lat - lat), abs(lon - w_lon))
+                if (abs(w_lat - lat) <  .009) and (abs(lon - w_lon) < .009):
+                    # redeploy
+                    locNode = self.checkNode()
+                    loc = self.grid[locNode[0]][locNode[1]]
+                    self.performAction(vehicle_id, loc.Location, "waypoint")
+                    print("redeploy")
 
         if isinstance(lmcpObject, AirVehicleConfiguration):
             vehicleInfo = lmcpObject
             print(str(vehicleInfo.EntityType))
 
-            locNode = self.getNode()
+            locNode = self.checkNode()
             loc = self.grid[locNode[0]][locNode[1]]
 
             if (str(vehicleInfo.EntityType) == "b'FixedWing'"):
-                self.performAction(vehicleInfo.get_ID(), loc.Location, "loiter")
+                self.performAction(vehicleInfo.get_ID(), loc.Location, "waypoint")
 
             elif (str(vehicleInfo.EntityType) == "b'Multi'"):
-                self.performAction(vehicleInfo.get_ID(), loc.Location, "loiter")
+                self.performAction(vehicleInfo.get_ID(), loc.Location, "waypoint")
 
         if isinstance(lmcpObject, HazardZoneDetection):
             hazardDetected = lmcpObject
@@ -121,10 +144,6 @@ class Summit(IDataReceived):
                 print(x,y)
                 print('fire at ',lat,lon)
 
-                # redeploy
-                locNode = self.getNode()
-                loc = self.grid[locNode[0]][locNode[1]]
-                self.performAction(detectingEntity, loc.Location, "loiter")
 
     def sendLoiterCommand(self, vehicleId, location):
         # Setting up the mission to send to the UAV
@@ -160,7 +179,19 @@ class Summit(IDataReceived):
         vehicleActionCommand = VehicleActionCommand()
         vehicleActionCommand.set_VehicleID(vehicleId)
         vehicleActionCommand.set_Status(CommandStatusType.Pending)
-        vehicleActionCommand.set_CommandID(1)
+        vehicleActionCommand.set_CommandID(0)
+
+        if (action == "waypoint"):
+            vehicleActionCommand = MissionCommand()
+            vehicleActionCommand.set_VehicleID(vehicleId)
+            vehicleActionCommand.set_Status(CommandStatusType.Pending)
+            vehicleActionCommand.set_CommandID(0)
+            waypoint = Waypoint()
+            waypoint.set_Latitude(location.get_Latitude())
+            waypoint.set_Longitude(location.get_Longitude())
+            waypoint.set_Altitude(self.ALTITUDE)
+            vehicleActionCommand.get_WaypointList().append(waypoint)
+            self.waypoints[vehicleId] = (location.get_Latitude(), location.get_Longitude())
 
         if (action == "loiter"):
             loiter = LoiterAction()
@@ -197,11 +228,6 @@ class Summit(IDataReceived):
         coords.set_Altitude(alt)
         return coords
 
-    def getNode(self):
-        coords = [[a, b] for a in range(self.GRID_SIZE) for b in range(self.GRID_SIZE)]
-        pvalues = softmax(self.p_grid.flatten())
-        r = np.random.choice(range(self.GRID_SIZE * self.GRID_SIZE), 1, p=pvalues)[0]
-        return coords[r]
 
 
     # FOREIGN FUNCTIONS
