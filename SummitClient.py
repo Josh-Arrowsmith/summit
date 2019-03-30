@@ -15,7 +15,11 @@ from afrl.cmasi.searchai.HazardType import HazardType
 from afrl.cmasi.Location3D import Location3D
 from afrl.cmasi.AirVehicleState import AirVehicleState
 from afrl.cmasi.AirVehicleConfiguration import AirVehicleConfiguration
+
 import numpy as np
+from scipy.special import softmax
+
+GRID_SIZE = 10
 
 class PrintLMCPObject(IDataReceived):
     def dataReceived(self, lmcpObject):
@@ -27,10 +31,12 @@ class Summit(IDataReceived):
         self.__client = tcpClient
         self.__uavsLoiter = {}
         self.__estimatedHazardZone = Polygon()
-        self.grid = np.full((10,10), 1)
+        self.grid = np.full((GRID_SIZE,GRID_SIZE), 1.0)
+        self.p_grid = np.empty((GRID_SIZE,GRID_SIZE))
 
     def tick(self):
-        print(self.grid)
+        #print(self.grid)
+
         alpha = 0.5
         # x  current drone position in grid
         # y  position in grid
@@ -40,7 +46,9 @@ class Summit(IDataReceived):
         self.grid[x][y] *= alpha
 
         # pick a random waypoint based on probability grid
-
+        coords = [[a, b] for a in range(GRID_SIZE) for b in range(GRID_SIZE)]
+        r = np.random.choice( range(GRID_SIZE*GRID_SIZE), 1, p = softmax(self.grid.flatten()))[0]
+        print(coords[r])
 
 
        # Get position
