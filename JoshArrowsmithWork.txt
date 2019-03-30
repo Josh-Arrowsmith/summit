@@ -1,0 +1,26 @@
+locate the edge between non hazard and hazard zone
+reach it
+place a marker
+turn clockwise until the hazard zone covers the left half of the drones vision
+go forward until the hazard half of the vision changes to be higher or lower
+if higher
+	place a marker
+	turn to the right until the hazard side takes up 50% of the drones vision again
+	once this is done continue to follow down the line
+if lower
+	place a marker
+	turn to the left until the hazard side takes up 50% of the drones vision again
+	once this is done continue to follow down the line
+when/if the drone finds the first marker again
+	fly back to hq
+	if encounter a fast boi
+		transfere the data to them and tell them to return to hq
+when drone gets back to hq
+	transfer data to server/firefighting team
+after transfer
+	give this data to any drones that return to hq
+	get back to closest marker to hq to help out
+	
+
+maybe have all drones broadcast their current location to make locating one another simpler or have a function that requests
+the location of all other drones so we can start effectively relaying info quickly 
