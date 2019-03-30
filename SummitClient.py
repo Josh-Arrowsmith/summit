@@ -17,7 +17,18 @@ from afrl.cmasi.Location3D import Location3D
 from afrl.cmasi.AirVehicleState import AirVehicleState
 from afrl.cmasi.AirVehicleConfiguration import AirVehicleConfiguration
 from afrl.cmasi.KeepInZone import KeepInZone
+
+# Librarys that haven't come with the default hackathon package
+from scipy.special import softmax
+import math
 import numpy as np
+
+
+class Node():  # Class defined for each point in the matrix
+    def __init__(self, id_in, location_in):
+        self.ID = id_in
+        self.Location = location_in
+        self.value = 1
 
 
 class PrintLMCPObject(IDataReceived):
@@ -31,8 +42,8 @@ class Summit(IDataReceived):
         self.__client = tcpClient
         self.__uavsLoiter = {}
         self.__estimatedHazardZone = Polygon()
-        self.grid = np.full((10, 10), 1)
-        self.zoneCenter = Location3D
+        self.grid = [[[] for i in range(10)] for j in range(10)] # Creates empty array 10 x 10
+        self.zoneCenter = Location3D()
 
     def tick(self):
         print(self.grid)
@@ -42,16 +53,16 @@ class Summit(IDataReceived):
         x = y = 0
         # adjust the grid based on current observation
         # no fire in the area of the drone decrease the p value by alpha
-        self.grid[x][y] *= alpha
+        #self.grid[x][y] *= alpha
 
         # pick a random waypoint based on probability grid
 
-# Credrics random point selector with probability ---
+        # Credrics random point selector with probability ---
+#        GRID_SIZE = 10
 #        coords = [[a, b] for a in range(GRID_SIZE) for b in range(GRID_SIZE)]
 #        pvalues = softmax(self.grid.flatten())
 #        r = np.random.choice(range(GRID_SIZE * GRID_SIZE), 1, p=pvalues)[0]
 #        print(coords[r])
-#----
 
     # Get position
     # Compute distance to refuel
@@ -76,7 +87,12 @@ class Summit(IDataReceived):
             print("Zone Lat: " + str(self.zoneCenter.get_Latitude()))
             print("Zone Long: " + str(self.zoneCenter.get_Longitude()))
 
-#            self.zonecentercoords = (self.zoneCenter.get_Latitude(), self.zoneCenter.get_Longitude())
+            for a in range(10):     # Fill array with Node Objects (Is instanciated here because we can get the zone data here)
+                for b in range(10):
+                    self.grid[a][b] = Node(str(a) + str(b), self.meterCoordsFromCenter((20000/10)*a - 10000,(20000/10)*b - 10000, 700))
+                    print(self.grid[a][b].Location.toString())
+            self.tick()
+        #            self.zonecentercoords = (self.zoneCenter.get_Latitude(), self.zoneCenter.get_Longitude())
 
         if isinstance(lmcpObject, AirVehicleState):
             vehicleState = lmcpObject
@@ -84,12 +100,12 @@ class Summit(IDataReceived):
         if isinstance(lmcpObject, AirVehicleConfiguration):
             vehicleInfo = lmcpObject
             print(str(vehicleInfo.EntityType))
+
             if (str(vehicleInfo.EntityType) == "b'FixedWing'"):
-                loc = Location3D()
-                loc.set_Latitude(53.4363)
-                loc.set_Longitude(-1.6816)
-                loc.set_Altitude(700)
-                self.performAction(vehicleInfo.get_ID(), loc, "loiter")
+                self.performAction(vehicleInfo.get_ID(), self.meterCoordsFromCenter(5000,10000,700), "loiter")
+
+            elif (str(vehicleInfo.EntityType) == "b'Multi'"):
+                self.performAction(vehicleInfo.get_ID(), self.meterCoordsFromCenter(0,0,700), "loiter")
 
         if isinstance(lmcpObject, HazardZoneDetection):
             hazardDetected = lmcpObject
@@ -153,7 +169,7 @@ class Summit(IDataReceived):
         # Sending the Vehicle Action Command message to AMASE to be interpreted
         self.__client.sendLMCPObject(hazardZoneEstimateReport)
 
-    def performAction(self, vehicleId, location, action): # Action that is called that tells the drone what to do
+    def performAction(self, vehicleId, location, action):  # Action that is called that tells the drone what to do
         # Setting up the mission to send to the UAV
         vehicleActionCommand = VehicleActionCommand()
         vehicleActionCommand.set_VehicleID(vehicleId)
@@ -177,6 +193,21 @@ class Summit(IDataReceived):
         # Sending the Vehicle Action Command message to AMASE to be interpreted
         self.__client.sendLMCPObject(vehicleActionCommand)
 
+    def meterCoordsFromCenter(self, lat, lon, alt):
+        # Following code block allows us to get meters from coordinates and add them to each other. which is faaaaantastic
+        earth = 6378.137
+        pi = 3.1415
+        m = (1 / ((2 * math.pi / 360) * earth)) / 1000
+        coords = Location3D()
+
+        latitude = self.zoneCenter.get_Latitude() + (lat * m)  # The '0' here is the amount of meters we would like to shift left or right
+        longitude = self.zoneCenter.get_Longitude() + (lon * m) / math.cos(self.zoneCenter.get_Latitude() * (math.pi / 180))
+        # ----------------------------------------------------------------------------------------------------------------
+
+        coords.set_Latitude(latitude)
+        coords.set_Longitude(longitude)
+        coords.set_Altitude(alt)
+        return coords
 
 #################
 ## Main
@@ -229,4 +260,3 @@ if __name__ == '__main__':
 
             vehicleState.Location
 """
-
