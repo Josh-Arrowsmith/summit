@@ -42,12 +42,14 @@ class Summit(IDataReceived):
         self.grid[x][y] *= alpha
 
         # pick a random waypoint based on probability grid
-
-
+        coords = [[a, b] for a in range(GRID_SIZE) for b in range(GRID_SIZE)]
+        pvalues = softmax(self.grid.flatten())
+        r = np.random.choice(range(GRID_SIZE * GRID_SIZE), 1, p = pvalues)[0]
+        print(coords[r])
 
        # Get position
-        # Compute distance to refuel
-     #   distance =
+         # Compute distance to refuel
+        #   distance =
         # if distance to refuel > fuel * consumption * safety_coefficient:
             # set heading to / waypoint to refuel position
         # else:
@@ -67,6 +69,7 @@ class Summit(IDataReceived):
             self.zoneCenter = zone.Boundary.CenterPoint                 # Stores the Zones bounding box geopoint into Zone Center
             print("Zone Lat: " + str(self.zoneCenter.get_Latitude()))
             print("Zone Long: " + str(self.zoneCenter.get_Longitude()))
+            self.zonecentercoords = (self.zoneCenter.get_Latitude(), self.zoneCenter.get_Longitude())
 
         if isinstance(lmcpObject, AirVehicleState):
             vehicleState = lmcpObject
