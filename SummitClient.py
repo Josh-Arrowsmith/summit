@@ -48,7 +48,7 @@ class Summit(IDataReceived):
         self.waypoints = {}
         self.__client = tcpClient
         self.__uavsLoiter = {}
-        self.__estimatedHazardZone = Polygon()
+        self.__estimatedHazardZone = []
         self.grid = [[0 for a in range(self.GRID_SIZE)] for b in range(self.GRID_SIZE)] #np.ones([self.GRID_SIZE, self.GRID_SIZE])
         self.p_grid = np.ones([self.GRID_SIZE, self.GRID_SIZE])
         self.zoneCenter = Location3D()
@@ -124,8 +124,11 @@ class Summit(IDataReceived):
                 # Send the loiter command
                 #self.sendLoiterCommand(detectingEntity, detectedLocation)
 
+                # test if new fire
+                self.__estimatedHazardZone.append(Polygon())
+
                 # Note: Polygon points must be in clockwise or counter-clockwise order to get a shape without intersections
-                self.__estimatedHazardZone.get_BoundaryPoints().append(detectedLocation)
+                self.__estimatedHazardZone[-1].get_BoundaryPoints().append(detectedLocation)
 
                 # Send out the estimation report to draw the polygon
                 self.sendEstimateReport()
@@ -219,7 +222,7 @@ class Summit(IDataReceived):
         if (action == "loiter"):
             loiter = LoiterAction()
             loiter.set_LoiterType(LoiterType.Circular)
-            loiter.set_Radius(10)
+            loiter.set_Radius(500)
             loiter.set_Axis(0)
             loiter.set_Length(0)
             loiter.set_Direction(LoiterDirection.Clockwise)
