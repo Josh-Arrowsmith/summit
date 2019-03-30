@@ -23,6 +23,7 @@ from scipy.special import softmax
 import math
 import numpy as np
 
+GRID_SIZE = 10
 
 class Node():  # Class defined for each point in the matrix
     def __init__(self, id_in, location_in):
@@ -42,7 +43,9 @@ class Summit(IDataReceived):
         self.__client = tcpClient
         self.__uavsLoiter = {}
         self.__estimatedHazardZone = Polygon()
-        self.grid = [[[] for i in range(10)] for j in range(10)] # Creates empty array 10 x 10
+        self.node = [[[] for i in range(10)] for j in range(10)] # Creates empty array 10 x 10
+        self.grid = np.full((GRID_SIZE, GRID_SIZE), 1.0)
+        self.p_grid = np.empty((GRID_SIZE, GRID_SIZE))
         self.zoneCenter = Location3D()
 
     def tick(self):
@@ -58,11 +61,12 @@ class Summit(IDataReceived):
         # pick a random waypoint based on probability grid
 
         # Credrics random point selector with probability ---
-#        GRID_SIZE = 10
 #        coords = [[a, b] for a in range(GRID_SIZE) for b in range(GRID_SIZE)]
 #        pvalues = softmax(self.grid.flatten())
 #        r = np.random.choice(range(GRID_SIZE * GRID_SIZE), 1, p=pvalues)[0]
 #        print(coords[r])
+    #Another implementaion has been made down the bottom
+
 
     # Get position
     # Compute distance to refuel
@@ -89,10 +93,8 @@ class Summit(IDataReceived):
 
             for a in range(10):     # Fill array with Node Objects (Is instanciated here because we can get the zone data here)
                 for b in range(10):
-                    self.grid[a][b] = Node(str(a) + str(b), self.meterCoordsFromCenter((20000/10)*a - 10000,(20000/10)*b - 10000, 700))
-                    print(self.grid[a][b].Location.toString())
+                    self.node[a][b] = Node(str(a) + str(b), self.meterCoordsFromCenter((20000/10)*a - 10000,(20000/10)*b - 10000, 700))
             self.tick()
-        #            self.zonecentercoords = (self.zoneCenter.get_Latitude(), self.zoneCenter.get_Longitude())
 
         if isinstance(lmcpObject, AirVehicleState):
             vehicleState = lmcpObject
@@ -101,11 +103,14 @@ class Summit(IDataReceived):
             vehicleInfo = lmcpObject
             print(str(vehicleInfo.EntityType))
 
+            locNode = self.getNode()
+            loc = self.node[locNode[0]][locNode[1]]
+
             if (str(vehicleInfo.EntityType) == "b'FixedWing'"):
-                self.performAction(vehicleInfo.get_ID(), self.meterCoordsFromCenter(5000,10000,700), "loiter")
+                self.performAction(vehicleInfo.get_ID(), loc.Location, "loiter")    # Setting the beggining location for the drones to loiter
 
             elif (str(vehicleInfo.EntityType) == "b'Multi'"):
-                self.performAction(vehicleInfo.get_ID(), self.meterCoordsFromCenter(0,0,700), "loiter")
+                self.performAction(vehicleInfo.get_ID(), loc.Location, "loiter")
 
         if isinstance(lmcpObject, HazardZoneDetection):
             hazardDetected = lmcpObject
@@ -208,6 +213,12 @@ class Summit(IDataReceived):
         coords.set_Longitude(longitude)
         coords.set_Altitude(alt)
         return coords
+
+    def getNode(self):  #Cedrics get coordinates with probability method
+        coords = [[a, b] for a in range(GRID_SIZE) for b in range(GRID_SIZE)]
+        pvalues = softmax(self.grid.flatten())
+        r = np.random.choice(range(GRID_SIZE * GRID_SIZE), 1, p=pvalues)[0]
+        return coords[r]
 
 #################
 ## Main

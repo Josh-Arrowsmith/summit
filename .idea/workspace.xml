@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="7e6e6892-ec94-4a34-8c90-169c35672d90" name="Default Changelist" comment="Allowed for the drones to loiter around an area easier.">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/SummitClient.py" beforeDir="false" afterPath="$PROJECT_DIR$/SummitClient.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -15,8 +16,8 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/SummitClient.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="214">
-              <caret line="92" column="61" selection-start-line="92" selection-start-column="61" selection-end-line="92" selection-end-column="61" />
+            <state relative-caret-position="221">
+              <caret line="216" column="72" selection-start-line="216" selection-start-column="72" selection-end-line="216" selection-end-column="72" />
               <folding>
                 <element signature="e#0#42#0" expanded="true" />
               </folding>
@@ -83,6 +84,7 @@
   </component>
   <component name="PropertiesComponent">
     <property name="ASKED_SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
+    <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$" />
     <property name="settings.editor.selected.configurable" value="preferences.lookFeel" />
@@ -141,7 +143,7 @@
       <workItem from="1553896718336" duration="6821000" />
       <workItem from="1553905849605" duration="9666000" />
       <workItem from="1553917386677" duration="1280000" />
-      <workItem from="1553918796970" duration="8619000" />
+      <workItem from="1553918796970" duration="10344000" />
     </task>
     <task id="LOCAL-00001" summary="Allowed for obtainment of the zones center longitude and latitude">
       <created>1553912061455</created>
@@ -161,7 +163,7 @@
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="26386000" />
+    <option name="totallyTimeSpent" value="28111000" />
   </component>
   <component name="TodoView">
     <todo-panel id="selected-file">
@@ -245,13 +247,13 @@
     <option name="LAST_COMMIT_MESSAGE" value="Allowed for the drones to loiter around an area easier." />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/Summit$SummitClient.coverage" NAME="SummitClient Coverage Results" MODIFIED="1553928263029" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Summit$SummitClient.coverage" NAME="SummitClient Coverage Results" MODIFIED="1553929998383" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
   <component name="editorHistoryManager">
     <entry file="file://$PROJECT_DIR$/SummitClient.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="214">
-          <caret line="92" column="61" selection-start-line="92" selection-start-column="61" selection-end-line="92" selection-end-column="61" />
+        <state relative-caret-position="221">
+          <caret line="216" column="72" selection-start-line="216" selection-start-column="72" selection-end-line="216" selection-end-column="72" />
           <folding>
             <element signature="e#0#42#0" expanded="true" />
           </folding>
