@@ -113,6 +113,7 @@ class Summit(IDataReceived):
                 x, y = self.grid_coords_from_loc(lat, lon)
                 beta = .5
                 self.p_grid[x][y] = beta
+            
 
         # Hazard detected
         if isinstance(lmcpObject, HazardZoneDetection):
@@ -125,10 +126,30 @@ class Summit(IDataReceived):
                 #self.sendLoiterCommand(detectingEntity, detectedLocation)
 
                 # test if new fire
-                self.__estimatedHazardZone.append(Polygon())
+                if self.__estimatedHazardZone == []:
+                    self.__estimatedHazardZone.append(Polygon())
+                    self.__estimatedHazardZone[0].get_BoundaryPoints().append(detectedLocation)
+                else:
+
+                    newFire = True
+                    for poly in self.__estimatedHazardZone:
+                        lat = poly.BoundaryPoints[0].get_Latitude()
+                        lon = poly.BoundaryPoints[0].get_Longitude()
+                        f_lat = detectedLocation.get_Latitude()
+                        f_lon = detectedLocation.get_Longtitude()
+                        if (abs(f_lat - lat) < 1) and (abs(lon - f_lon) < 1):
+                            poly.get_BoundaryPoints().append(detectedLocation)
+                            newFire = False
+                            break
+                    if newFire:
+                        self.__estimatedHazardZone.append(Polygon())
+                        self.__estimatedHazardZone[-1].get_BoundaryPoints().append(detectedLocation)
+
+
+
 
                 # Note: Polygon points must be in clockwise or counter-clockwise order to get a shape without intersections
-                self.__estimatedHazardZone[-1].get_BoundaryPoints().append(detectedLocation)
+                #self.__estimatedHazardZone[-1].get_BoundaryPoints().append(detectedLocation)
 
                 # Send out the estimation report to draw the polygon
                 self.sendEstimateReport()
@@ -148,6 +169,7 @@ class Summit(IDataReceived):
                 self.p_grid[x][y] = alpha
                 print(x,y)
                 print('fire at ', f_lat, f_lon)
+                #self.sendLoiterCommand(self, detectingEntity, detectedLocation, 10)
                 self.performAction(detectingEntity, detectedLocation, "loiter")
 
     def grid_coords_from_loc(self,i_lat,i_lon):
@@ -167,7 +189,7 @@ class Summit(IDataReceived):
                     last_diff_lon = diff_lon
         return (x,y)
 
-    def sendLoiterCommand(self, vehicleId, location):
+    def sendLoiterCommand(self, vehicleId, location, radius = 50):
         # Setting up the mission to send to the UAV
         vehicleActionCommand = VehicleActionCommand()
         vehicleActionCommand.set_VehicleID(vehicleId)
@@ -177,7 +199,7 @@ class Summit(IDataReceived):
         # Setting up the loiter action
         loiterAction = LoiterAction()
         loiterAction.set_LoiterType(LoiterType.Circular)
-        loiterAction.set_Radius(50)
+        loiterAction.set_Radius(radius)
         loiterAction.set_Axis(0)
         loiterAction.set_Length(0)
         loiterAction.set_Direction(LoiterDirection.Clockwise)
@@ -257,13 +279,16 @@ class Summit(IDataReceived):
     # FOREIGN FUNCTIONS
     def sendEstimateReport(self):
         # Setting up the mission to send to the UAV
-        hazardZoneEstimateReport = HazardZoneEstimateReport()
-        hazardZoneEstimateReport.set_EstimatedZoneShape(self.__estimatedHazardZone)
-        hazardZoneEstimateReport.set_UniqueTrackingID(1)
-        hazardZoneEstimateReport.set_EstimatedGrowthRate(0)
-        hazardZoneEstimateReport.set_PerceivedZoneType(HazardType.Fire)
-        hazardZoneEstimateReport.set_EstimatedZoneDirection(0)
-        hazardZoneEstimateReport.set_EstimatedZoneSpeed(0)
+        i = 0
+        for fire in self.__estimatedHazardZone:
+            i += 1
+            hazardZoneEstimateReport = HazardZoneEstimateReport()
+            hazardZoneEstimateReport.set_EstimatedZoneShape(fire)
+            hazardZoneEstimateReport.set_UniqueTrackingID(i)
+            hazardZoneEstimateReport.set_EstimatedGrowthRate(0)
+            hazardZoneEstimateReport.set_PerceivedZoneType(HazardType.Fire)
+            hazardZoneEstimateReport.set_EstimatedZoneDirection(0)
+            hazardZoneEstimateReport.set_EstimatedZoneSpeed(0)
 
         # Sending the Vehicle Action Command message to AMASE to be interpreted
         self.__client.sendLMCPObject(hazardZoneEstimateReport)
