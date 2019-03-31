@@ -4,6 +4,7 @@ from amase.TCPClient import IDataReceived
 from afrl.cmasi.searchai.HazardZoneEstimateReport import HazardZoneEstimateReport
 from afrl.cmasi.Circle import Circle
 from afrl.cmasi.Polygon import Polygon
+from afrl.cmasi.Rectangle import Rectangle
 from afrl.cmasi.Waypoint import Waypoint
 from afrl.cmasi.VehicleActionCommand import VehicleActionCommand
 from afrl.cmasi.MissionCommand import MissionCommand
@@ -18,7 +19,7 @@ from afrl.cmasi.Location3D import Location3D
 from afrl.cmasi.AirVehicleState import AirVehicleState
 from afrl.cmasi.AirVehicleConfiguration import AirVehicleConfiguration
 from afrl.cmasi.KeepInZone import KeepInZone
-
+from afrl.cmasi.KeepOutZone import KeepOutZone
 
 # Librarys that haven't come with the default hackathon package
 from scipy.special import softmax
@@ -62,6 +63,30 @@ class Summit(IDataReceived):
         return coords[r]
 
     def dataReceived(self, lmcpObject):
+
+        # Scenario initialised
+        if isinstance(lmcpObject, KeepOutZone):
+            # Increase probability of sending drones in this area
+            print("Priority target")
+            keepOutZone = lmcpObject
+            prioritylocation = None
+            if isinstance(keepOutZone.Boundary, Rectangle):
+                prioritylocation = keepOutZone.Boundary.CenterPoint
+            if isinstance(keepOutZone.Boundary, Polygon):
+                prioritylocation = keepOutZone.Boundary.BoundaryPoints[0]
+            if isinstance(keepOutZone.Boundary, Circle):
+                prioritylocation = keepOutZone.Boundary.CenterPoint
+
+            # find x y of target, calculated from lat and lon
+            t_lat = prioritylocation.get_Latitude()
+            t_lon = prioritylocation.get_Longitude()
+
+            # adjust the pgrid values when there is fire
+            x, y = self.grid_coords_from_loc(t_lat, t_lon)
+            gamma = 3
+            self.p_grid[x][y] = gamma
+            print(x, y)
+            print('fire at ', t_lat, t_lon)
 
         # Scenario initialised
         if isinstance(lmcpObject, KeepInZone):
